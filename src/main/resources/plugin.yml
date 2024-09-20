@@ -1,0 +1,7 @@
+name: planet
+version: '${project.version}'
+main: fr.rammex.planet.Planet
+commands:
+  planet:
+    description: Command to manage the planet
+
