@@ -20,7 +20,7 @@ public final class Planet extends JavaPlugin {
 
         instance = this;
 
-        getConfig().addDefault("Settings.Prefix", "&8[&6SchematicAPI&8] &7");
+        getConfig().addDefault("Settings.Prefix", "&8[&6Planet&8] &7");
         getConfig().addDefault("Settings.BlocksPerTick", 500);
         getConfig().options().copyDefaults(true);
         saveConfig();
