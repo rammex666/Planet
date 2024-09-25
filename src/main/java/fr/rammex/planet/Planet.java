@@ -1,11 +1,14 @@
 package fr.rammex.planet;
 
 import fr.rammex.planet.commands.PlanetCommand;
+import fr.rammex.planet.data.DataManager;
 import fr.rammex.planet.events.PlayerEventListener;
 import org.bukkit.ChatColor;
+import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
-
 import java.io.File;
+import java.util.HashMap;
+import java.util.Map;
 
 public final class Planet extends JavaPlugin {
 
@@ -15,10 +18,21 @@ public final class Planet extends JavaPlugin {
 
     public static int BLOCKS_PER_TICK;
 
+    private Map<String, DataManager> databases = new HashMap<>();
+
+
+
+
     @Override
     public void onEnable() {
+        getDataFolder().mkdirs();
 
         instance = this;
+
+        initializeDatabase("planet", "CREATE TABLE IF NOT EXISTS test (" + "`test` varchar(32) NOT NULL," + "PRIMARY KEY (`test`)" + ");");
+
+        saveDefaultConfig();
+
 
         getConfig().addDefault("Settings.Prefix", "&8[&6Planet&8] &7");
         getConfig().addDefault("Settings.BlocksPerTick", 500);
@@ -38,7 +52,6 @@ public final class Planet extends JavaPlugin {
 
     @Override
     public void onDisable() {
-
     }
 
     private void loadSchematicsFolder() {
@@ -54,10 +67,29 @@ public final class Planet extends JavaPlugin {
         }
     }
 
+
     private void messages(){
         getLogger().info("-------------------------");
         getLogger().info("Plugin planet enabled v1.0");
         getLogger().info("by .rammex");
         getLogger().info("-------------------------");
     }
+
+    public void initializeDatabase(String databaseName, String createStatement) {
+        DataManager db = new DataManager(databaseName, createStatement, this.getDataFolder());
+        db.load();
+        databases.put(databaseName, db);
+    }
+
+    public Map<String, DataManager> getDatabases() {
+        return databases;
+    }
+
+
+    public DataManager getDatabase(String databaseName) {
+        return getDatabases().get(databaseName);
+    }
+
+
+
 }

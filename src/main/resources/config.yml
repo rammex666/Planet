@@ -1,0 +1,11 @@
+database:
+  localhost: true
+  host: ""
+  port: ""
+  name: ""
+  user: ""
+  password: ""
+
+Settings:
+  Prefix: '&8[&6Planet&8] &7'
+  BlocksPerTick: 500
