@@ -2,10 +2,7 @@ package fr.rammex.planet.commands;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 import fr.rammex.planet.Planet;
 import fr.rammex.planet.object.Schematic;
@@ -19,9 +16,7 @@ import net.minecraft.server.v1_8_R3.PacketPlayOutEntityTeleport;
 import net.minecraft.server.v1_8_R3.PacketPlayOutSpawnEntityLiving;
 import net.minecraft.server.v1_8_R3.PlayerConnection;
 import net.minecraft.server.v1_8_R3.WorldServer;
-import org.bukkit.Location;
-import org.bukkit.Material;
-import org.bukkit.World;
+import org.bukkit.*;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
@@ -44,16 +39,35 @@ public class PlanetCommand implements CommandExecutor {
         }
         Player player = (Player) sender;
 
-        if (args.length == 2 && args[0].equalsIgnoreCase("paste")) {
+        if (args.length == 4 && args[0].equalsIgnoreCase("paste")) {
+            String schematicName = args[1];
+            String playerName = args[2];
+            String days = args[3];
+
+            if (!isNumeric(days)) {
+                player.sendMessage(Planet.PREFIX + "Days must be a number");
+                return true;
+            }
 
             if (!player.hasPermission("Planet.paste")) {
                 player.sendMessage(Planet.PREFIX + "No permission");
                 return true;
             }
 
-            File file = new File(Planet.instance.getDataFolder()+"/schematics", args[1].replace(".schematic", "") + ".schematic");
+            File file = new File(Planet.instance.getDataFolder() + "/schematics", schematicName + ".schematic");
             if (!file.exists()) {
                 player.sendMessage(Planet.PREFIX + "Schematic not found");
+                return true;
+            }
+
+            UUID playerUUID = getPlayerUUID(playerName);
+            if (playerUUID == null) {
+                player.sendMessage(Planet.PREFIX + "Player not found");
+                return true;
+            }
+
+            if (Planet.instance.getDatabase("planet").isUUIDInDatabase(playerUUID.toString())) {
+                player.sendMessage(Planet.PREFIX + "Player data already exists in the database");
                 return true;
             }
 
@@ -62,15 +76,18 @@ public class PlanetCommand implements CommandExecutor {
                 Schematic schematic = new Schematic(file);
                 schematic.paste(player.getLocation(), Planet.BLOCKS_PER_TICK, (Long time) -> {
                     player.sendMessage(Planet.PREFIX + "Schematic was pasted in " + (time / 1000F) + " seconds");
+
+                    String query = "INSERT INTO player_data (player_name, uuid, schematic, day, x, y, z) VALUES (?, ?, ?, ?, ?, ?, ?)";
+                    Planet.instance.getDatabase("planet").insertData(query, playerName, playerUUID.toString(), schematicName, Integer.parseInt(days), player.getLocation().getX(), player.getLocation().getY(), player.getLocation().getZ());
                 });
             } catch (IOException ex) {
-                player.sendMessage(Planet.PREFIX + "An error occured while pasting");
+                player.sendMessage(Planet.PREFIX + "An error occurred while pasting");
                 ex.printStackTrace();
             }
 
         } else {
             player.sendMessage(Planet.PREFIX + "Usage:");
-            player.sendMessage(Planet.PREFIX + "/" + label + " paste <schematic>");
+            player.sendMessage(Planet.PREFIX + "/" + label + " paste <schematic> <days>");
         }
         return true;
     }
@@ -95,5 +112,19 @@ public class PlanetCommand implements CommandExecutor {
 
     private byte convertFloat(float f) {
         return (byte) ((int) (f * 256.0F / 360.0F));
+    }
+
+    public boolean isNumeric(String str) {
+        try {
+            Integer.parseInt(str);
+            return true;
+        } catch (NumberFormatException e) {
+            return false;
+        }
+    }
+
+    public UUID getPlayerUUID(String playerName) {
+        OfflinePlayer offlinePlayer = Bukkit.getOfflinePlayer(playerName);
+        return offlinePlayer != null ? offlinePlayer.getUniqueId() : null;
     }
 }

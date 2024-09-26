@@ -18,7 +18,7 @@ public final class Planet extends JavaPlugin {
 
     public static int BLOCKS_PER_TICK;
 
-    private Map<String, DataManager> databases = new HashMap<>();
+    private final Map<String, DataManager> databases = new HashMap<>();
 
 
 
@@ -29,7 +29,16 @@ public final class Planet extends JavaPlugin {
 
         instance = this;
 
-        initializeDatabase("planet", "CREATE TABLE IF NOT EXISTS test (" + "`test` varchar(32) NOT NULL," + "PRIMARY KEY (`test`)" + ");");
+        initializeDatabase("planet", "CREATE TABLE IF NOT EXISTS player_data (" +
+                "`player_name` VARCHAR(32) NOT NULL," +
+                "`uuid` VARCHAR(36) NOT NULL," +
+                "`schematic` TEXT," +
+                "`day` INT," +
+                "`x` DOUBLE," +
+                "`y` DOUBLE," +
+                "`z` DOUBLE," +
+                "PRIMARY KEY (`uuid`)" +
+                ");");
 
         saveDefaultConfig();
 

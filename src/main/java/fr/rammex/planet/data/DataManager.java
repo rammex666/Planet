@@ -16,9 +16,6 @@ public class DataManager {
 
     private Connection connection;
 
-    private String createTestTable = "CREATE TABLE IF NOT EXISTS test (" + "`test` varchar(32) NOT NULL,"
-            + "PRIMARY KEY (`test`)" + ");";
-
     private final String customCreateString;
 
     private final File dataFolder;
@@ -32,7 +29,7 @@ public class DataManager {
     public void initialize() {
         connection = getSQLConnection();
         try {
-            PreparedStatement ps = connection.prepareStatement("SELECT * FROM test");
+            PreparedStatement ps = connection.prepareStatement("SELECT * FROM player_data");
             ResultSet rs = ps.executeQuery();
             close(ps, rs);
 
@@ -70,6 +67,16 @@ public class DataManager {
         connection = getSQLConnection();
         try {
             Statement s = connection.createStatement();
+            String createTestTable = "CREATE TABLE IF NOT EXISTS player_data (" +
+                    "`player_name` VARCHAR(32) NOT NULL," +
+                    "`uuid` VARCHAR(36) NOT NULL," +
+                    "`schematic` TEXT," +
+                    "`day` INT," +
+                    "`x` DOUBLE," +
+                    "`y` DOUBLE," +
+                    "`z` DOUBLE," +
+                    "PRIMARY KEY (`uuid`)" +
+                    ");";
             s.executeUpdate(createTestTable);
             s.executeUpdate(customCreateString);
             s.close();
@@ -96,5 +103,35 @@ public class DataManager {
         } catch (SQLException e) {
             Planet.instance.getLogger().log(Level.SEVERE, "Failed to close database connection", e);
         }
+    }
+
+    public void insertData(String query, Object... params) {
+        try (Connection conn = getSQLConnection();
+             PreparedStatement ps = conn.prepareStatement(query)) {
+
+            for (int i = 0; i < params.length; i++) {
+                ps.setObject(i + 1, params[i]);
+            }
+
+            ps.executeUpdate();
+        } catch (SQLException e) {
+            Planet.instance.getLogger().log(Level.SEVERE, "Failed to insert data", e);
+        }
+    }
+
+    public boolean isUUIDInDatabase(String uuid) {
+        String query = "SELECT COUNT(*) FROM player_data WHERE uuid = ?";
+        try (Connection conn = getSQLConnection();
+             PreparedStatement ps = conn.prepareStatement(query)) {
+            ps.setString(1, uuid);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getInt(1) > 0;
+                }
+            }
+        } catch (SQLException e) {
+            Planet.instance.getLogger().log(Level.SEVERE, "Failed to check UUID in database", e);
+        }
+        return false;
     }
 }
