@@ -1,11 +1,9 @@
-database:
-  localhost: true
-  host: ""
-  port: ""
-  name: ""
-  user: ""
-  password: ""
-
 Settings:
   Prefix: '&8[&6Planet&8] &7'
   BlocksPerTick: 500
+
+
+Command:
+  Tp:
+    # coolown in seconds
+    cooldown: 120

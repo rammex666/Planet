@@ -41,6 +41,7 @@ public final class Planet extends JavaPlugin {
                 "`y` DOUBLE," +
                 "`z` DOUBLE," +
                 "`world` TEXT," +
+                "`armorloc` TEXT," +
                 "PRIMARY KEY (`uuid`)" +
                 ");");
 

@@ -80,6 +80,7 @@ public class DataManager {
                     "`y` DOUBLE," +
                     "`z` DOUBLE," +
                     "`world` TEXT," +
+                    "`armorloc` TEXT," +
                     "PRIMARY KEY (`uuid`)" +
                     ");";
             s.executeUpdate(createTestTable);
@@ -269,5 +270,20 @@ public class DataManager {
         return null;
     }
 
+    public int getDaysLeft(String loc) {
+        String query = "SELECT day FROM player_data WHERE armorloc = ?";
+        try (Connection conn = getSQLConnection();
+             PreparedStatement ps = conn.prepareStatement(query)) {
+            ps.setString(1, loc);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getInt("day");
+                }
+            }
+        } catch (SQLException e) {
+            Planet.instance.getLogger().log(Level.SEVERE, "Failed to get days left", e);
+        }
+        return 0;
+    }
 
 }

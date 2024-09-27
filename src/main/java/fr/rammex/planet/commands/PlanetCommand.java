@@ -25,12 +25,20 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.craftbukkit.v1_8_R3.CraftWorld;
 import org.bukkit.craftbukkit.v1_8_R3.entity.CraftPlayer;
 import org.bukkit.craftbukkit.v1_8_R3.inventory.CraftItemStack;
+import org.bukkit.entity.ArmorStand;
+import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.scheduler.BukkitRunnable;
 
 public class PlanetCommand implements CommandExecutor {
 
+    static int cooldown = Planet.instance.getConfig().getInt("Command.Tp.cooldown");
+
     public static final Map<Player, Positions> POSITIONS = new HashMap<>();
+    private ArmorStand armorStand;
+    private final Map<UUID, Long> tpCooldowns = new HashMap<>();
+    private static final long COOLDOWN_TIME = cooldown * 1000L;
 
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
@@ -46,7 +54,19 @@ public class PlanetCommand implements CommandExecutor {
                 player.sendMessage(Planet.PREFIX + "No permission");
                 return true;
             }
+
             UUID playerUUID = player.getUniqueId();
+            long currentTime = System.currentTimeMillis();
+
+            if (tpCooldowns.containsKey(playerUUID)) {
+                long lastUsed = tpCooldowns.get(playerUUID);
+                if (currentTime - lastUsed < COOLDOWN_TIME) {
+                    long timeLeft = (COOLDOWN_TIME - (currentTime - lastUsed)) / 1000;
+                    player.sendMessage(Planet.PREFIX + "You must wait " + timeLeft + " seconds before using this command again.");
+                    return true;
+                }
+            }
+
             if (!Planet.instance.getDatabase("planet").isUUIDInDatabase(playerUUID.toString())) {
                 player.sendMessage(Planet.PREFIX + "You don't have a planet !");
                 return true;
@@ -63,12 +83,11 @@ public class PlanetCommand implements CommandExecutor {
                 }
                 player.teleport(new Location(world, x, y, z));
                 player.sendMessage(Planet.PREFIX + "Teleported to your planet !");
+                tpCooldowns.put(playerUUID, currentTime);
             }
-
-
         }
 
-        if (args.length == 3 && args[0].equalsIgnoreCase("addays")) {
+        if (args[0].equalsIgnoreCase("addays")) {
             String playerName = args[1];
             String days = args[2];
 
@@ -96,7 +115,7 @@ public class PlanetCommand implements CommandExecutor {
 
         }
 
-        if (args.length == 4 && args[0].equalsIgnoreCase("paste")) {
+        if (args[0].equalsIgnoreCase("createplanet")) {
             String schematicName = args[1];
             String playerName = args[2];
             String days = args[3];
@@ -135,6 +154,7 @@ public class PlanetCommand implements CommandExecutor {
                 schematic.paste(player.getLocation(), Planet.BLOCKS_PER_TICK, (Long time) -> {
                     player.sendMessage(Planet.PREFIX + "Schematic was pasted in " + (time / 1000F) + " seconds");
 
+
                     String query = "INSERT INTO player_data (player_name, uuid, schematic, day, start_date, x, y, z, world) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
                     Planet.instance.getDatabase("planet").insertData(query, playerName, playerUUID.toString(), schematicName, Integer.parseInt(days), Date.valueOf(LocalDate.now()), player.getLocation().getX(), player.getLocation().getY(), player.getLocation().getZ(), worldName);
                 });
@@ -144,32 +164,9 @@ public class PlanetCommand implements CommandExecutor {
             }
 
         } else {
-            player.sendMessage(Planet.PREFIX + "Usage:");
-            player.sendMessage(Planet.PREFIX + "/" + label + " paste <schematic> <days>");
+            player.sendMessage(Planet.PREFIX + "Commande inconnue");
         }
         return true;
-    }
-
-    private void spawnArmorStand(Player player, World world, double x, double y, double z, float yaw, float pitch, String name) {
-        WorldServer worldServer = ((CraftWorld) world).getHandle();
-        PlayerConnection connection = ((CraftPlayer) player).getHandle().playerConnection;
-
-        EntityArmorStand armorStand = new EntityArmorStand(worldServer, x, y, z);
-        armorStand.setSmall(true);
-        armorStand.setCustomName(name);
-        armorStand.setCustomNameVisible(true);
-
-        connection.sendPacket(new PacketPlayOutSpawnEntityLiving(armorStand));
-        connection.sendPacket(new PacketPlayOutEntityTeleport(armorStand.getId(), convertDouble(x), convertDouble(y), convertDouble(z), convertFloat(yaw), convertFloat(pitch), false));
-        connection.sendPacket(new PacketPlayOutEntityEquipment(armorStand.getId(), 4, CraftItemStack.asNMSCopy(new ItemStack(Material.SKULL_ITEM, 1, (byte) 3))));
-    }
-
-    private int convertDouble(double d) {
-        return (int) (d * 32.0D);
-    }
-
-    private byte convertFloat(float f) {
-        return (byte) ((int) (f * 256.0F / 360.0F));
     }
 
     public boolean isNumeric(String str) {
@@ -184,5 +181,35 @@ public class PlanetCommand implements CommandExecutor {
     public UUID getPlayerUUID(String playerName) {
         OfflinePlayer offlinePlayer = Bukkit.getOfflinePlayer(playerName);
         return offlinePlayer != null ? offlinePlayer.getUniqueId() : null;
+    }
+
+    public void spawnArmorStand(Location location) {
+        armorStand = (ArmorStand) location.getWorld().spawnEntity(location, EntityType.ARMOR_STAND);
+        armorStand.setVisible(false);
+        armorStand.setCustomName("Loading...");
+        armorStand.setCustomNameVisible(true);
+        armorStand.setGravity(false);
+
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                if (armorStand != null && !armorStand.isDead()) {
+                    int dayleft = Planet.instance.getDatabase("planet").getDaysLeft(String.valueOf(armorStand.getLocation()));
+                    if (dayleft < 30 && dayleft > 20) {
+                        armorStand.setCustomName("§a" + dayleft + " §7days left");
+                    } else if (dayleft < 20 && dayleft > 10) {
+                        armorStand.setCustomName("§2" + dayleft + " §7days left");
+                    } else if (dayleft < 10 && dayleft > 5) {
+                        armorStand.setCustomName("§e" + dayleft + " §7days left");
+                    } else if (dayleft < 5 && dayleft > 1) {
+                        armorStand.setCustomName("§6" + dayleft + " §7days left");
+                    } else {
+                        armorStand.setCustomName("§4" + dayleft + " §7days left");
+                    }
+                } else {
+                    this.cancel();
+                }
+            }
+        }.runTaskTimer(Planet.instance, 0L, 20L * 60 * 5); // 5 minutes
     }
 }
