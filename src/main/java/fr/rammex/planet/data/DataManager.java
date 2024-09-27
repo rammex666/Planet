@@ -5,6 +5,9 @@ import fr.rammex.planet.Planet;
 import java.io.File;
 import java.io.IOException;
 import java.sql.*;
+import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.logging.Level;
 
 
@@ -72,9 +75,11 @@ public class DataManager {
                     "`uuid` VARCHAR(36) NOT NULL," +
                     "`schematic` TEXT," +
                     "`day` INT," +
+                    "`start_date` DATE," +
                     "`x` DOUBLE," +
                     "`y` DOUBLE," +
                     "`z` DOUBLE," +
+                    "`world` TEXT," +
                     "PRIMARY KEY (`uuid`)" +
                     ");";
             s.executeUpdate(createTestTable);
@@ -134,4 +139,135 @@ public class DataManager {
         }
         return false;
     }
+
+    public Date getStartDate(String uuid) {
+        String query = "SELECT start_date FROM player_data WHERE uuid = ?";
+        try (Connection conn = getSQLConnection();
+             PreparedStatement ps = conn.prepareStatement(query)) {
+            ps.setString(1, uuid);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getDate("start_date");
+                }
+            }
+        } catch (SQLException e) {
+            Planet.instance.getLogger().log(Level.SEVERE, "Failed to get start date", e);
+        }
+        return null;
+    }
+
+    public void decrementDays(String uuid) {
+        Date startDate = getStartDate(uuid);
+        if (startDate == null) {
+            return;
+        }
+
+        LocalDate currentDate = LocalDate.now();
+        LocalDate startLocalDate = startDate.toLocalDate();
+
+        if (currentDate.isAfter(startLocalDate)) {
+            String query = "UPDATE player_data SET day = day - 1, start_date = ? WHERE uuid = ? AND day > 0";
+            try (Connection conn = getSQLConnection();
+                 PreparedStatement ps = conn.prepareStatement(query)) {
+                ps.setDate(1, Date.valueOf(currentDate));
+                ps.setString(2, uuid);
+                ps.executeUpdate();
+            } catch (SQLException e) {
+                Planet.instance.getLogger().log(Level.SEVERE, "Failed to decrement days", e);
+            }
+        }
+    }
+
+    public List<String> getAllUUIDs() {
+        List<String> uuids = new ArrayList<>();
+        String query = "SELECT uuid FROM player_data";
+        try (Connection conn = getSQLConnection();
+             PreparedStatement ps = conn.prepareStatement(query);
+             ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) {
+                uuids.add(rs.getString("uuid"));
+            }
+        } catch (SQLException e) {
+            Planet.instance.getLogger().log(Level.SEVERE, "Failed to get all UUIDs", e);
+        }
+        return uuids;
+    }
+
+    public void addDays(String uuid, int daysToAdd) {
+        String query = "UPDATE player_data SET day = day + ? WHERE uuid = ?";
+        try (Connection conn = getSQLConnection();
+             PreparedStatement ps = conn.prepareStatement(query)) {
+            ps.setInt(1, daysToAdd);
+            ps.setString(2, uuid);
+            ps.executeUpdate();
+        } catch (SQLException e) {
+            Planet.instance.getLogger().log(Level.SEVERE, "Failed to add days", e);
+        }
+    }
+
+    public double getX(String uuid) {
+        String query = "SELECT x FROM player_data WHERE uuid = ?";
+        try (Connection conn = getSQLConnection();
+             PreparedStatement ps = conn.prepareStatement(query)) {
+            ps.setString(1, uuid);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getDouble("x");
+                }
+            }
+        } catch (SQLException e) {
+            Planet.instance.getLogger().log(Level.SEVERE, "Failed to get x coordinate", e);
+        }
+        return 0.0;
+    }
+
+    public double getY(String uuid) {
+        String query = "SELECT y FROM player_data WHERE uuid = ?";
+        try (Connection conn = getSQLConnection();
+             PreparedStatement ps = conn.prepareStatement(query)) {
+            ps.setString(1, uuid);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getDouble("y");
+                }
+            }
+        } catch (SQLException e) {
+            Planet.instance.getLogger().log(Level.SEVERE, "Failed to get y coordinate", e);
+        }
+        return 0.0;
+    }
+
+    public double getZ(String uuid) {
+        String query = "SELECT z FROM player_data WHERE uuid = ?";
+        try (Connection conn = getSQLConnection();
+             PreparedStatement ps = conn.prepareStatement(query)) {
+            ps.setString(1, uuid);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getDouble("z");
+                }
+            }
+        } catch (SQLException e) {
+            Planet.instance.getLogger().log(Level.SEVERE, "Failed to get z coordinate", e);
+        }
+        return 0.0;
+    }
+
+    public String getWorld(String uuid) {
+        String query = "SELECT world FROM player_data WHERE uuid = ?";
+        try (Connection conn = getSQLConnection();
+             PreparedStatement ps = conn.prepareStatement(query)) {
+            ps.setString(1, uuid);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getString("world");
+                }
+            }
+        } catch (SQLException e) {
+            Planet.instance.getLogger().log(Level.SEVERE, "Failed to get world", e);
+        }
+        return null;
+    }
+
+
 }

@@ -2,6 +2,8 @@ package fr.rammex.planet.commands;
 
 import java.io.File;
 import java.io.IOException;
+import java.sql.Date;
+import java.time.LocalDate;
 import java.util.*;
 
 import fr.rammex.planet.Planet;
@@ -39,10 +41,66 @@ public class PlanetCommand implements CommandExecutor {
         }
         Player player = (Player) sender;
 
+        if (args[0].equalsIgnoreCase("tp")) {
+            if (!player.hasPermission("Planet.tp")) {
+                player.sendMessage(Planet.PREFIX + "No permission");
+                return true;
+            }
+            UUID playerUUID = player.getUniqueId();
+            if (!Planet.instance.getDatabase("planet").isUUIDInDatabase(playerUUID.toString())) {
+                player.sendMessage(Planet.PREFIX + "You don't have a planet !");
+                return true;
+            } else {
+                double x = Planet.instance.getDatabase("planet").getX(playerUUID.toString());
+                double y = Planet.instance.getDatabase("planet").getY(playerUUID.toString());
+                double z = Planet.instance.getDatabase("planet").getZ(playerUUID.toString());
+                String worldName = Planet.instance.getDatabase("planet").getWorld(playerUUID.toString());
+
+                World world = Bukkit.getWorld(worldName);
+                if (world == null) {
+                    player.sendMessage(Planet.PREFIX + "World not found");
+                    return true;
+                }
+                player.teleport(new Location(world, x, y, z));
+                player.sendMessage(Planet.PREFIX + "Teleported to your planet !");
+            }
+
+
+        }
+
+        if (args.length == 3 && args[0].equalsIgnoreCase("addays")) {
+            String playerName = args[1];
+            String days = args[2];
+
+            if (!isNumeric(days)) {
+                player.sendMessage(Planet.PREFIX + "Days must be a number");
+                return true;
+            }
+            if(!player.hasPermission("Planet.addays")) {
+                player.sendMessage(Planet.PREFIX + "No permission");
+                return true;
+            }
+
+            UUID playerUUID = getPlayerUUID(playerName);
+            if (playerUUID == null) {
+                player.sendMessage(Planet.PREFIX + "Player not found");
+                return true;
+            }
+
+            if (!Planet.instance.getDatabase("planet").isUUIDInDatabase(playerUUID.toString())) {
+                player.sendMessage(Planet.PREFIX + "Player data not found in the database");
+                return true;
+            } else {
+                Planet.instance.getDatabase("planet").addDays(playerUUID.toString(), Integer.parseInt(days));
+            }
+
+        }
+
         if (args.length == 4 && args[0].equalsIgnoreCase("paste")) {
             String schematicName = args[1];
             String playerName = args[2];
             String days = args[3];
+            String worldName = player.getWorld().getName();
 
             if (!isNumeric(days)) {
                 player.sendMessage(Planet.PREFIX + "Days must be a number");
@@ -77,8 +135,8 @@ public class PlanetCommand implements CommandExecutor {
                 schematic.paste(player.getLocation(), Planet.BLOCKS_PER_TICK, (Long time) -> {
                     player.sendMessage(Planet.PREFIX + "Schematic was pasted in " + (time / 1000F) + " seconds");
 
-                    String query = "INSERT INTO player_data (player_name, uuid, schematic, day, x, y, z) VALUES (?, ?, ?, ?, ?, ?, ?)";
-                    Planet.instance.getDatabase("planet").insertData(query, playerName, playerUUID.toString(), schematicName, Integer.parseInt(days), player.getLocation().getX(), player.getLocation().getY(), player.getLocation().getZ());
+                    String query = "INSERT INTO player_data (player_name, uuid, schematic, day, start_date, x, y, z, world) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                    Planet.instance.getDatabase("planet").insertData(query, playerName, playerUUID.toString(), schematicName, Integer.parseInt(days), Date.valueOf(LocalDate.now()), player.getLocation().getX(), player.getLocation().getY(), player.getLocation().getZ(), worldName);
                 });
             } catch (IOException ex) {
                 player.sendMessage(Planet.PREFIX + "An error occurred while pasting");

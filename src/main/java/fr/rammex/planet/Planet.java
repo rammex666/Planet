@@ -6,6 +6,8 @@ import fr.rammex.planet.events.PlayerEventListener;
 import org.bukkit.ChatColor;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.bukkit.scheduler.BukkitRunnable;
+
 import java.io.File;
 import java.util.HashMap;
 import java.util.Map;
@@ -34,9 +36,11 @@ public final class Planet extends JavaPlugin {
                 "`uuid` VARCHAR(36) NOT NULL," +
                 "`schematic` TEXT," +
                 "`day` INT," +
+                "`start_date` DATE," +
                 "`x` DOUBLE," +
                 "`y` DOUBLE," +
                 "`z` DOUBLE," +
+                "`world` TEXT," +
                 "PRIMARY KEY (`uuid`)" +
                 ");");
 
@@ -57,6 +61,17 @@ public final class Planet extends JavaPlugin {
 
         loadSchematicsFolder();
         messages();
+
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                for (DataManager db : getDatabases().values()) {
+                    for (String uuid : db.getAllUUIDs()) {
+                        db.decrementDays(uuid);
+                    }
+                }
+            }
+        }.runTaskTimer(this, 0L, 20L * 60 * 5);
     }
 
     @Override
