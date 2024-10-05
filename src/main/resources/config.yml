@@ -1,7 +1,12 @@
 Settings:
   Prefix: '&8[&6Planet&8] &7'
   BlocksPerTick: 500
-
+  ProtectedZoneRadius: 30
+   # in the protected zone, players can't execute the blocked commands
+  BlockedCommands:
+    - /tp
+    - /give
+    - /kill
 
 Command:
   Tp:

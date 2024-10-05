@@ -1,0 +1,28 @@
+# PlaceHolder api Support
+# PlaceHolder : %player% : Player Name, %prefix% : Prefix in config.yml
+
+# messages.yml
+
+hologram:
+  # special placeholder %day% for days left
+  day: "&aDay left : &r%day%"
+
+error:
+  no-permission: "&cYou do not have permission to use this command."
+  # special placeholder %time% for cooldown
+  tp-cooldown: "&cYou must wait %time% seconds before using this command again."
+  player-not-found: "&cPlayer not found."
+  zone-overlapping: "&cYou can't create a planet here, it overlaps with another planet."
+  no-days-left: "&cYou have no days left on your planet."
+  world-not-found: "&cWorld not found."
+  days-not-number: "&cThe number of days must be a valid number."
+  schematic-not-found: "&cSchematic not found."
+  player-already-exists: "&cPlayer already has a planet."
+  unknown-command: "&cUnknown command."
+  database-not-found: "&cDatabase not found."
+
+command:
+  teleported: "&aYou have been teleported to your planet."
+
+schematic:
+  pasting: "&aPasting schematic, please wait..."

@@ -8,19 +8,13 @@ import java.sql.*;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 import java.util.logging.Level;
-
 
 public class DataManager {
 
     private final String dbname;
-
-
-
-    private Connection connection;
-
     private final String customCreateString;
-
     private final File dataFolder;
 
     public DataManager(String databaseName, String createStatement, File folder) {
@@ -30,14 +24,12 @@ public class DataManager {
     }
 
     public void initialize() {
-        connection = getSQLConnection();
-        try {
+        try (Connection connection = getSQLConnection()) {
             PreparedStatement ps = connection.prepareStatement("SELECT * FROM player_data");
             ResultSet rs = ps.executeQuery();
             close(ps, rs);
-
         } catch (SQLException ex) {
-            Planet.instance.getLogger().log(Level.SEVERE, "Unable to retreive connection", ex);
+            Planet.instance.getLogger().log(Level.SEVERE, "Unable to retrieve connection", ex);
         }
     }
 
@@ -51,24 +43,16 @@ public class DataManager {
             }
         }
         try {
-            if (connection != null && !connection.isClosed()) {
-                return connection;
-            }
             Class.forName("org.sqlite.JDBC");
-            connection = DriverManager.getConnection("jdbc:sqlite:" + folder);
-            return connection;
-        } catch (SQLException ex) {
+            return DriverManager.getConnection("jdbc:sqlite:" + folder);
+        } catch (SQLException | ClassNotFoundException ex) {
             Planet.instance.getLogger().log(Level.SEVERE, "SQLite exception on initialize", ex);
-        } catch (ClassNotFoundException ex) {
-            Planet.instance.getLogger().log(Level.SEVERE,
-                    "You need the SQLite JBDC library. Google it. Put it in /lib folder.");
         }
         return null;
     }
 
     public void load() {
-        connection = getSQLConnection();
-        try {
+        try (Connection connection = getSQLConnection()) {
             Statement s = connection.createStatement();
             String createTestTable = "CREATE TABLE IF NOT EXISTS player_data (" +
                     "`player_name` VARCHAR(32) NOT NULL," +
@@ -81,6 +65,7 @@ public class DataManager {
                     "`z` DOUBLE," +
                     "`world` TEXT," +
                     "`armorloc` TEXT," +
+                    "`seconds` INT," +
                     "PRIMARY KEY (`uuid`)" +
                     ");";
             s.executeUpdate(createTestTable);
@@ -94,31 +79,19 @@ public class DataManager {
 
     public void close(PreparedStatement ps, ResultSet rs) {
         try {
-            if (ps != null)
-                ps.close();
-            if (rs != null)
-                rs.close();
+            if (ps != null) ps.close();
+            if (rs != null) rs.close();
         } catch (SQLException ex) {
             Planet.instance.getLogger().log(Level.SEVERE, "Failed to close database connection", ex);
-        }
-    }
-
-    public void closeConnection() {
-        try {
-            connection.close();
-        } catch (SQLException e) {
-            Planet.instance.getLogger().log(Level.SEVERE, "Failed to close database connection", e);
         }
     }
 
     public void insertData(String query, Object... params) {
         try (Connection conn = getSQLConnection();
              PreparedStatement ps = conn.prepareStatement(query)) {
-
             for (int i = 0; i < params.length; i++) {
                 ps.setObject(i + 1, params[i]);
             }
-
             ps.executeUpdate();
         } catch (SQLException e) {
             Planet.instance.getLogger().log(Level.SEVERE, "Failed to insert data", e);
@@ -155,28 +128,6 @@ public class DataManager {
             Planet.instance.getLogger().log(Level.SEVERE, "Failed to get start date", e);
         }
         return null;
-    }
-
-    public void decrementDays(String uuid) {
-        Date startDate = getStartDate(uuid);
-        if (startDate == null) {
-            return;
-        }
-
-        LocalDate currentDate = LocalDate.now();
-        LocalDate startLocalDate = startDate.toLocalDate();
-
-        if (currentDate.isAfter(startLocalDate)) {
-            String query = "UPDATE player_data SET day = day - 1, start_date = ? WHERE uuid = ? AND day > 0";
-            try (Connection conn = getSQLConnection();
-                 PreparedStatement ps = conn.prepareStatement(query)) {
-                ps.setDate(1, Date.valueOf(currentDate));
-                ps.setString(2, uuid);
-                ps.executeUpdate();
-            } catch (SQLException e) {
-                Planet.instance.getLogger().log(Level.SEVERE, "Failed to decrement days", e);
-            }
-        }
     }
 
     public List<String> getAllUUIDs() {
@@ -286,4 +237,100 @@ public class DataManager {
         return 0;
     }
 
+    public int getDays(UUID playerUUID) {
+        int seconds = getSeconds(playerUUID.toString());
+        return seconds / (24 * 60 * 60); // Convertir les secondes en jours
+    }
+
+    public String getPlayerName(String uuid) {
+        String query = "SELECT player_name FROM player_data WHERE uuid = ?";
+        try (Connection conn = getSQLConnection();
+             PreparedStatement ps = conn.prepareStatement(query)) {
+            ps.setString(1, uuid);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getString("player_name");
+                }
+            }
+        } catch (SQLException e) {
+            Planet.instance.getLogger().log(Level.SEVERE, "Failed to get player name", e);
+        }
+        return null;
+    }
+
+    public String getUUID(String playerName) {
+        String query = "SELECT uuid FROM player_data WHERE player_name = ?";
+        try (Connection conn = getSQLConnection();
+             PreparedStatement ps = conn.prepareStatement(query)) {
+            ps.setString(1, playerName);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getString("uuid");
+                }
+            }
+        } catch (SQLException e) {
+            Planet.instance.getLogger().log(Level.SEVERE, "Failed to get UUID", e);
+        }
+        return null;
+    }
+
+    public int getSeconds(String uuid) {
+        String query = "SELECT seconds FROM player_data WHERE uuid = ?";
+        try (Connection conn = getSQLConnection();
+             PreparedStatement ps = conn.prepareStatement(query)) {
+            ps.setString(1, uuid);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getInt("seconds");
+                }
+            }
+        } catch (SQLException e) {
+            Planet.instance.getLogger().log(Level.SEVERE, "Failed to get seconds", e);
+        }
+        return 0;
+    }
+
+    public void setSeconds(String uuid, int seconds) {
+        String query = "UPDATE player_data SET seconds = ? WHERE uuid = ?";
+        try (Connection conn = getSQLConnection();
+             PreparedStatement ps = conn.prepareStatement(query)) {
+            ps.setInt(1, seconds);
+            ps.setString(2, uuid);
+            ps.executeUpdate();
+        } catch (SQLException e) {
+            Planet.instance.getLogger().log(Level.SEVERE, "Failed to set seconds", e);
+        }
+    }
+
+    public void deletePlayer(String uuid) {
+        String query = "DELETE FROM player_data WHERE uuid = ?";
+        try (Connection conn = getSQLConnection();
+             PreparedStatement ps = conn.prepareStatement(query)) {
+            ps.setString(1, uuid);
+            ps.executeUpdate();
+        } catch (SQLException e) {
+            Planet.instance.getLogger().log(Level.SEVERE, "Failed to delete player", e);
+        }
+    }
+
+    public boolean isZoneOverlapping(double x, double y, double z, int radius) {
+        String query = "SELECT x, y, z FROM player_data";
+        try (Connection conn = getSQLConnection();
+             PreparedStatement ps = conn.prepareStatement(query);
+             ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) {
+                double playerX = rs.getDouble("x");
+                double playerY = rs.getDouble("y");
+                double playerZ = rs.getDouble("z");
+
+                double distance = Math.sqrt(Math.pow(playerX - x, 2) + Math.pow(playerY - y, 2) + Math.pow(playerZ - z, 2));
+                if (distance < (radius)) {
+                    return true;
+                }
+            }
+        } catch (SQLException e) {
+            Planet.instance.getLogger().log(Level.SEVERE, "Failed to check zone overlap", e);
+        }
+        return false;
+    }
 }

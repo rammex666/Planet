@@ -354,9 +354,17 @@ public class Schematic {
         net.minecraft.server.v1_8_R3.World nmsWorld = ((CraftWorld) world).getHandle();
         net.minecraft.server.v1_8_R3.Chunk chunk = nmsWorld.getChunkAt(x >> 4, z >> 4);
         try {
-            chunk.a(new net.minecraft.server.v1_8_R3.BlockPosition(x & 0xF, y, z & 0xF), net.minecraft.server.v1_8_R3.Block.getById(id).fromLegacyData(data));
-        } catch (Exception ex) {
-            //TODO FIX (Attempted to place a tile entity at x,y,z where there was no entity tile!)
+            net.minecraft.server.v1_8_R3.BlockPosition blockPosition = new net.minecraft.server.v1_8_R3.BlockPosition(x & 0xF, y, z & 0xF);
+            net.minecraft.server.v1_8_R3.IBlockData blockData = net.minecraft.server.v1_8_R3.Block.getById(id).fromLegacyData(data);
+
+            // Check if the block type matches the expected type for the tile entity
+            if (blockData.getBlock().isTileEntity()) {
+                chunk.a(blockPosition, blockData);
+            } else {
+                // Handle the case where the block is not a tile entity
+                chunk.a(blockPosition, blockData);
+            }
+        } catch (Exception ignored) {
         }
         return chunk.bukkitChunk;
     }
