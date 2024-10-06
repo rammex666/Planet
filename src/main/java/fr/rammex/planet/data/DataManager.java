@@ -5,7 +5,6 @@ import fr.rammex.planet.Planet;
 import java.io.File;
 import java.io.IOException;
 import java.sql.*;
-import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -332,5 +331,22 @@ public class DataManager {
             Planet.instance.getLogger().log(Level.SEVERE, "Failed to check zone overlap", e);
         }
         return false;
+    }
+
+    public String getSchematic(String uuid) {
+        String query = "SELECT schematic FROM player_data WHERE uuid = ?";
+        try (Connection conn = getSQLConnection();
+             PreparedStatement ps = conn.prepareStatement(query)) {
+            ps.setString(1, uuid);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    String schematic = rs.getString("schematic");
+                    return schematic;
+                }
+            }
+        } catch (SQLException e) {
+            Planet.instance.getLogger().log(Level.SEVERE, "Failed to get schematic", e);
+        }
+        return query;
     }
 }

@@ -44,12 +44,41 @@ public class PlaceHolder extends PlaceholderExpansion {
             return null;
         }
 
-        if (identifier.equals("coordinates")) {
-            return getPlayerPlanetCoordinates(player);
+        if (identifier.equals("x")) {
+            UUID playerUUID = player.getUniqueId();
+            DataManager db = plugin.getDatabase("planet");
+            if (db != null) {
+                return String.valueOf(db.getX(playerUUID.toString()));
+            }
+        }
+
+        if (identifier.equals("y")) {
+            UUID playerUUID = player.getUniqueId();
+            DataManager db = plugin.getDatabase("planet");
+            if (db != null) {
+                return String.valueOf(db.getY(playerUUID.toString()));
+            }
+        }
+
+        if (identifier.equals("z")) {
+            UUID playerUUID = player.getUniqueId();
+            DataManager db = plugin.getDatabase("planet");
+            if (db != null) {
+                return String.valueOf(db.getZ(playerUUID.toString()));
+            }
         }
 
         if (identifier.equals("days")) {
             return getPlayerDays(player);
+        }
+
+        if (identifier.equals("schem")){
+            UUID playerUUID = player.getUniqueId();
+            DataManager db = plugin.getDatabase("planet");
+            if (db != null) {
+                String schematic = db.getSchematic(playerUUID.toString());
+                return schematic;
+            }
         }
 
         if (identifier.equals("player")) {
@@ -66,30 +95,19 @@ public class PlaceHolder extends PlaceholderExpansion {
         return null;
     }
 
-    private String getPlayerPlanetCoordinates(Player player) {
-        UUID playerUUID = player.getUniqueId();
-        DataManager db = plugin.getDatabase("planet");
 
-        if (db != null) {
-            double x = db.getX(playerUUID.toString());
-            double y = db.getY(playerUUID.toString());
-            double z = db.getZ(playerUUID.toString());
-            String world = db.getWorld(playerUUID.toString());
-
-            return String.format("World: %s, X: %.2f, Y: %.2f, Z: %.2f", world, x, y, z);
-        }
-
-        return "Aucune Planet";
-    }
 
     private String getPlayerDays(Player player) {
         UUID playerUUID = player.getUniqueId();
         DataManager db = plugin.getDatabase("planet");
 
         if (db != null) {
-            int days = db.getDays(UUID.fromString(playerUUID.toString()));
+            int totalSeconds = db.getSeconds(playerUUID.toString());
+            int days = totalSeconds / (24 * 60 * 60);
+            int hours = (totalSeconds % (24 * 60 * 60)) / (60 * 60);
+            int minutes = (totalSeconds % (60 * 60)) / 60;
 
-            return String.format("Jours restant: %d", days);
+            return String.format("%d:%02d:%02d", days, hours, minutes);
         }
         return "Aucune Planet";
     }

@@ -21,6 +21,8 @@ import net.minecraft.server.v1_8_R3.PacketPlayOutSpawnEntityLiving;
 import net.minecraft.server.v1_8_R3.PlayerConnection;
 import net.minecraft.server.v1_8_R3.WorldServer;
 import org.bukkit.*;
+import org.bukkit.block.Block;
+import org.bukkit.block.Chest;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
@@ -75,13 +77,31 @@ public class PlanetCommand implements CommandExecutor {
 
             if (tpCooldowns.containsKey(playerUUID)) {
                 if(player.hasPermission("Planet.tp.bypass")) {
-                    tpCooldowns.remove(playerUUID);
-                }
-                long lastUsed = tpCooldowns.get(playerUUID);
-                if (currentTime - lastUsed < COOLDOWN_TIME) {
-                    long timeLeft = (COOLDOWN_TIME - (currentTime - lastUsed)) / 1000;
-                    player.sendMessage(MessagesConfig.getMessage("error.tp-cooldown", player).replace("%time%", String.valueOf(timeLeft)));
-                    return true;
+                    int secondeleft = Planet.instance.getDatabase("planet").getSeconds(playerUUID.toString());
+                    if (secondeleft <= 0) {
+                        player.sendMessage(MessagesConfig.getMessage("error.no-days-left", player));
+                        return true;
+                    }
+                    double x = Planet.instance.getDatabase("planet").getX(playerUUID.toString());
+                    double y = Planet.instance.getDatabase("planet").getY(playerUUID.toString());
+                    double z = Planet.instance.getDatabase("planet").getZ(playerUUID.toString());
+                    String worldName = Planet.instance.getDatabase("planet").getWorld(playerUUID.toString());
+
+                    World world = Bukkit.getWorld(worldName);
+                    if (world == null) {
+                        player.sendMessage(MessagesConfig.getMessage("error.world-not-found", player));
+                        return true;
+                    }
+                    player.teleport(new Location(world, x, y, z));
+                    player.sendMessage(MessagesConfig.getMessage("command.teleported", player));
+                    tpCooldowns.put(playerUUID, currentTime);
+                } else {
+                    long lastUsed = tpCooldowns.get(playerUUID);
+                    if (currentTime - lastUsed < COOLDOWN_TIME) {
+                        long timeLeft = (COOLDOWN_TIME - (currentTime - lastUsed)) / 1000;
+                        player.sendMessage(MessagesConfig.getMessage("error.tp-cooldown", player).replace("%time%", String.valueOf(timeLeft)));
+                        return true;
+                    }
                 }
             }
 
@@ -336,7 +356,7 @@ public class PlanetCommand implements CommandExecutor {
         if (meta != null) {
             meta.setDisplayName(ChatColor.GREEN + playerName + "'s Planet");
             List<String> lore = new ArrayList<>();
-            lore.add(ChatColor.YELLOW + "Days left: " + daysLeft);
+            lore.add(ChatColor.YELLOW + "Days left: " + getPlayerDays(Bukkit.getOfflinePlayer(UUID.fromString(uuid)).getPlayer()));
             lore.add(ChatColor.YELLOW + "Coordinates: ");
             lore.add(ChatColor.YELLOW + " * X : " + x);
             lore.add(ChatColor.YELLOW + " * Y : " + y);
@@ -376,7 +396,12 @@ public class PlanetCommand implements CommandExecutor {
                 for (double z = centerZ - radius; z <= centerZ + radius; z++) {
                     Location loc = new Location(world, x, y, z);
                     if (loc.getBlockY() >= 0 && loc.getBlockY() < world.getMaxHeight()) {
-                        world.getBlockAt(loc).setType(Material.AIR);
+                        Block block = world.getBlockAt(loc);
+                        if (block.getState() instanceof Chest) {
+                            Chest chest = (Chest) block.getState();
+                            chest.getInventory().clear();
+                        }
+                        block.setType(Material.AIR);
                     }
                 }
             }
@@ -397,5 +422,20 @@ public class PlanetCommand implements CommandExecutor {
                 break;
             }
         }
+    }
+
+    private static String getPlayerDays(Player player) {
+        UUID playerUUID = player.getUniqueId();
+        DataManager db = Planet.instance.getDatabase("planet");
+
+        if (db != null) {
+            int totalSeconds = db.getSeconds(playerUUID.toString());
+            int days = totalSeconds / (24 * 60 * 60);
+            int hours = (totalSeconds % (24 * 60 * 60)) / (60 * 60);
+            int minutes = (totalSeconds % (60 * 60)) / 60;
+
+            return String.format("%d:%02d:%02d", days, hours, minutes);
+        }
+        return "Aucune Planet";
     }
 }
