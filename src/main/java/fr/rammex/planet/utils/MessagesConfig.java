@@ -9,6 +9,7 @@ import org.bukkit.entity.Player;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.List;
 
 public class MessagesConfig {
 
@@ -63,12 +64,12 @@ public class MessagesConfig {
         return message;
     }
 
-    public static String getHologram(String key){
-        String message = messagesConf.getString(key);
-        if (message != null) {
-            message = message.replace("&", "§");
+    public static List<String> getHologram(String key){
+        List<String>  hologram = messagesConf.getStringList(key);
+        for (int i = 0; i < hologram.size(); i++) {
+            hologram.set(i, hologram.get(i).toString().replace("&", "§"));
         }
-        return message;
+        return hologram;
     }
 
 

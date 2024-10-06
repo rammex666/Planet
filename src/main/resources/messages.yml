@@ -5,7 +5,9 @@
 
 hologram:
   # special placeholder %day% for days left
-  day: "&aDay left : &r%day%"
+  day:
+    - "&aDay left : &r%days%"
+    - "%planet_days%"
 
 error:
   no-permission: "&cYou do not have permission to use this command."

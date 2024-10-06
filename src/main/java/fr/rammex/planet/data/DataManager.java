@@ -113,21 +113,6 @@ public class DataManager {
         return false;
     }
 
-    public Date getStartDate(String uuid) {
-        String query = "SELECT start_date FROM player_data WHERE uuid = ?";
-        try (Connection conn = getSQLConnection();
-             PreparedStatement ps = conn.prepareStatement(query)) {
-            ps.setString(1, uuid);
-            try (ResultSet rs = ps.executeQuery()) {
-                if (rs.next()) {
-                    return rs.getDate("start_date");
-                }
-            }
-        } catch (SQLException e) {
-            Planet.instance.getLogger().log(Level.SEVERE, "Failed to get start date", e);
-        }
-        return null;
-    }
 
     public List<String> getAllUUIDs() {
         List<String> uuids = new ArrayList<>();
@@ -347,6 +332,6 @@ public class DataManager {
         } catch (SQLException e) {
             Planet.instance.getLogger().log(Level.SEVERE, "Failed to get schematic", e);
         }
-        return query;
+        return "Aucune Planet";
     }
 }

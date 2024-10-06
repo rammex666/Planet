@@ -97,9 +97,9 @@ public class PlaceHolder extends PlaceholderExpansion {
 
 
 
-    private String getPlayerDays(Player player) {
+    public static String getPlayerDays(Player player) {
         UUID playerUUID = player.getUniqueId();
-        DataManager db = plugin.getDatabase("planet");
+        DataManager db = Planet.instance.getDatabase("planet");
 
         if (db != null) {
             int totalSeconds = db.getSeconds(playerUUID.toString());
@@ -109,7 +109,7 @@ public class PlaceHolder extends PlaceholderExpansion {
 
             return String.format("%d:%02d:%02d", days, hours, minutes);
         }
-        return "Aucune Planet";
+        return "Aucune";
     }
 
     private String getPlayerAtLoc(Location loc) {

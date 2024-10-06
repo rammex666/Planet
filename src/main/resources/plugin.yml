@@ -1,8 +1,8 @@
 name: planet
 version: '${project.version}'
 main: fr.rammex.planet.Planet
-depend: ["PlaceholderAPI", DecentHolograms]
+depend: ["PlaceholderAPI", "DecentHolograms"]
 commands:
-  planet:
+  planete:
     description: Command to manage the planet
 

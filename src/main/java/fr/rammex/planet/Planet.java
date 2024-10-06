@@ -1,5 +1,7 @@
 package fr.rammex.planet;
 
+import eu.decentsoftware.holograms.api.DHAPI;
+import eu.decentsoftware.holograms.api.holograms.Hologram;
 import fr.rammex.planet.commands.PlanetCommand;
 import fr.rammex.planet.data.DataManager;
 import fr.rammex.planet.events.PlayerEventListener;
@@ -11,8 +13,10 @@ import fr.rammex.planet.utils.TimeDecrementTask;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Location;
+import org.bukkit.World;
 import org.bukkit.entity.ArmorStand;
 import org.bukkit.entity.EntityType;
+import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitRunnable;
 
@@ -29,14 +33,14 @@ public final class Planet extends JavaPlugin {
 
     private final Map<String, DataManager> databases = new HashMap<>();
 
-    private List<ArmorStand> armorStands = new ArrayList<>();
 
     @Override
     public void onEnable() {
-        removeArmorStands();
         getDataFolder().mkdirs();
 
         instance = this;
+
+
 
         new TimeDecrementTask(this).runTaskTimer(this, 0L, 20L);
 
@@ -69,7 +73,7 @@ public final class Planet extends JavaPlugin {
         MessagesConfig messagesConfig = new MessagesConfig();
         messagesConfig.loadMessages();
         //commands
-        getCommand("planet").setExecutor(new PlanetCommand());
+        getCommand("planete").setExecutor(new PlanetCommand());
         //events
         getServer().getPluginManager().registerEvents(new ZoneManager(this), this);
         getServer().getPluginManager().registerEvents(new PlayerEventListener(), this);
@@ -78,12 +82,9 @@ public final class Planet extends JavaPlugin {
         loadSchematicsFolder();
         messages();
 
+        createAllHolograms();
 
-        // Créer de nouveaux ArmorStand
-        spawnArmorStands();
-
-        PlanetCommand planetCommand = new PlanetCommand();
-        startArmorStandLoop();
+        startUpdatingHolograms();
 
         if (Bukkit.getPluginManager().isPluginEnabled("PlaceholderAPI")) { //
             new PlaceHolder(this).register(); //
@@ -94,7 +95,6 @@ public final class Planet extends JavaPlugin {
 
     @Override
     public void onDisable() {
-        removeArmorStands();
     }
 
     private void loadSchematicsFolder() {
@@ -108,6 +108,15 @@ public final class Planet extends JavaPlugin {
         } else {
             getLogger().info("Schematics folder already exists.");
         }
+    }
+
+    public void startUpdatingHolograms() {
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                PlanetCommand.updateHolograms();
+            }
+        }.runTaskTimer(Planet.instance, 0L, 20L); // 20 ticks = 1 second
     }
 
 
@@ -133,94 +142,59 @@ public final class Planet extends JavaPlugin {
         return getDatabases().get(databaseName);
     }
 
-
-    private void spawnArmorStands() {
-        DataManager db = getDatabase("planet");
-        if (db != null) {
+    public void createAllHolograms() {
+        for (Map.Entry<String, DataManager> entry : databases.entrySet()) {
+            DataManager db = entry.getValue();
             for (String uuid : db.getAllUUIDs()) {
-                if (uuid == null) continue;
-
-                double x = db.getX(uuid);
-                double y = db.getY(uuid);
-                double z = db.getZ(uuid);
+                double x = db.getX(uuid)+Planet.instance.getConfig().getDouble("holo.incrx");
+                double y = db.getY(uuid)+Planet.instance.getConfig().getDouble("holo.incry");
+                double z = db.getZ(uuid)+Planet.instance.getConfig().getDouble("holo.incrz");
                 String worldName = db.getWorld(uuid);
-                if (worldName == null) continue;
+                String playerName = db.getPlayerName(uuid);
 
-                Location loc = new Location(Bukkit.getWorld(worldName), x, y, z);
-                if (loc.getWorld() == null){
-                    System.out.println("World not found");
-                    continue;
-                };
+                World world = Bukkit.getWorld(worldName);
+                if (world != null) {
+                    Location loc = new Location(world, x, y, z);
 
-                int days = db.getDays(UUID.fromString(uuid));
-                String hologram = MessagesConfig.getHologram("hologram.day");
-                if (hologram == null){
-                    System.out.println("hologrammess not found");
-                    continue;
-                };
+                    int totalSeconds = db.getSeconds(uuid);
+                    int days = totalSeconds / (24 * 60 * 60);
+                    int hours = (totalSeconds % (24 * 60 * 60)) / (60 * 60);
+                    int minutes = (totalSeconds % (60 * 60)) / 60;
 
-                ArmorStand armorStand = (ArmorStand) loc.getWorld().spawnEntity(loc, EntityType.ARMOR_STAND);
-                if (days > 20) {
-                    armorStand.setCustomName(hologram.replace("%days%", "§a" + days));
-                } else if (days < 20 && days > 10) {
-                    armorStand.setCustomName(hologram.replace("%days%", "§2" + days));
-                } else if (days < 10 && days > 5) {
-                    armorStand.setCustomName(hologram.replace("%days%", "§e" + days));
-                } else if (days < 5 && days > 1) {
-                    armorStand.setCustomName(hologram.replace("%days%", "§6" + days));
-                } else {
-                    armorStand.setCustomName(hologram.replace("%days%", "§4" + days));
-                }
-                armorStand.setCustomNameVisible(true);
-                armorStand.setGravity(false);
-                armorStand.setVisible(false);
+                    String daysFormatted = String.format("%d:%02d:%02d", days, hours, minutes);
 
-                armorStands.add(armorStand);
-            }
-        } else {
-            getLogger().warning("Database 'planet' not found.");
-        }
-    }
+                    List<String> lines = MessagesConfig.getHologram("hologram.day");
 
-    private void removeArmorStands() {
-        for (ArmorStand armorStand : armorStands) {
-            armorStand.remove();
-        }
-        armorStands.clear();
-    }
-
-    public List<ArmorStand> getArmorStands() {
-        return armorStands;
-    }
-
-    public void startArmorStandLoop() {
-        new BukkitRunnable() {
-            @Override
-            public void run() {
-                String hologram = MessagesConfig.getHologram("hologram.day");
-                DataManager db = Planet.instance.getDatabase("planet");
-                if (db != null) {
-                    for (ArmorStand armorStand : Planet.instance.getArmorStands()) {
-                        UUID playerUUID = PlanetCommand.armorStandToPlayerUUID.get(armorStand.getUniqueId());
-                        if (playerUUID != null) {
-                            int dayleft = db.getDays(UUID.fromString(playerUUID.toString()));
-                            if (dayleft > 20) {
-                                armorStand.setCustomName(hologram.replace("%days%", "§a" + dayleft));
-                            } else if (dayleft < 20 && dayleft > 10) {
-                                armorStand.setCustomName(hologram.replace("%days%", "§2" + dayleft));
-                            } else if (dayleft < 10 && dayleft > 5) {
-                                armorStand.setCustomName(hologram.replace("%days%", "§e" + dayleft));
-                            } else if (dayleft < 5 && dayleft > 1) {
-                                armorStand.setCustomName(hologram.replace("%days%", "§6" + dayleft));
-                            } else {
-                                armorStand.setCustomName(hologram.replace("%days%", "§4" + dayleft));
-                            }
+                    if (days > 20) {
+                        for (int i = 0; i < lines.size(); i++) {
+                            lines.set(i, lines.get(i).toString().replace("%days%", "§a" + days)
+                                    .replace("%daysf%", daysFormatted));
+                        }
+                    } else if (days < 20 && days > 10) {
+                        for (int i = 0; i < lines.size(); i++) {
+                            lines.set(i, lines.get(i).toString().replace("%days%", "§2" + days)
+                                    .replace("%daysf%", daysFormatted));
+                        }
+                    } else if (days < 10 && days > 5) {
+                        for (int i = 0; i < lines.size(); i++) {
+                            lines.set(i, lines.get(i).toString().replace("%days%", "§e" + days)
+                                    .replace("%daysf%", daysFormatted));
+                        }
+                    } else if (days < 5 && days > 1) {
+                        for (int i = 0; i < lines.size(); i++) {
+                            lines.set(i, lines.get(i).toString().replace("%days%", "§6" + days)
+                                    .replace("%daysf%", daysFormatted));
+                        }
+                    } else {
+                        for (int i = 0; i < lines.size(); i++) {
+                            lines.set(i, lines.get(i).toString().replace("%days%", "§4" + days)
+                                    .replace("%daysf%", daysFormatted));
                         }
                     }
+
+                    Hologram hologram = DHAPI.createHologram("hologram_" + uuid, loc, false, lines);
                 }
             }
-        }.runTaskTimer(Planet.instance, 0L, 20L); // 5 minutes
+        }
     }
-
-
 }
